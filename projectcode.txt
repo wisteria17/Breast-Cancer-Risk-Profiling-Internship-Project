@@ -1,0 +1,125 @@
+import streamlit as st
+import numpy as np
+import pandas as pd
+from sklearn.mixture import GaussianMixture
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Set Streamlit UI configuration
+st.set_page_config(page_title="Breast Cancer Risk Profiling", layout="centered")
+st.markdown("""
+    <style>
+    body {
+        background-color: #FFE8E8;  /* Soft pastel pink */
+        color: #4A4A4A;
+        font-family: Arial, sans-serif;
+    }
+    .stTextInput, .stNumberInput, .stSelectbox, .stButton {
+        border-radius: 10px;
+    }
+    .stButton>button {
+        background-color: #FFB6C1; /* Light pastel pink */
+        color: white;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background-color: #FF69B4; /* Darker pastel pink */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Title
+st.title("🎗️ Breast Cancer Risk Profiling")
+st.write("Answer a few simple questions to assess your risk level and get personalized health tips.")
+
+# User Inputs
+age = st.number_input("Enter your age:", min_value=18, max_value=100, step=1)
+bmi = st.number_input("Enter your BMI:", min_value=10.0, max_value=50.0, step=0.1, format="%.1f")
+family_history = st.selectbox("Do you have a family history of breast cancer?", ["No", "Yes"])
+exercise = st.selectbox("Do you exercise regularly?", ["No", "Yes"])
+diet = st.selectbox("Is your diet rich in fruits and vegetables?", ["No", "Yes"])
+alcohol = st.selectbox("Do you consume alcohol regularly?", ["No", "Yes"])
+smoking = st.selectbox("Do you smoke?", ["No", "Yes"])
+breastfeeding = st.selectbox("Have you breastfed in the past?", ["No", "Yes"])
+hormone_therapy = st.selectbox("Are you or have you been on hormone replacement therapy?", ["No", "Yes"])
+
+# Process Inputs
+def preprocess_inputs():
+    input_data = np.array([
+        age,
+        bmi,
+        1 if family_history == "Yes" else 0,
+        1 if exercise == "Yes" else 0,
+        1 if diet == "Yes" else 0,
+        1 if alcohol == "Yes" else 0,
+        1 if smoking == "Yes" else 0,
+        1 if breastfeeding == "Yes" else 0,
+        1 if hormone_therapy == "Yes" else 0,
+    ]).reshape(1, -1)
+    scaler = StandardScaler()
+    input_scaled = scaler.fit_transform(input_data)
+    return input_scaled
+
+# Load Sample Data (Mocked for demonstration)
+data = pd.DataFrame({
+    "Age": np.random.randint(18, 100, 100),
+    "BMI": np.random.uniform(10, 50, 100),
+    "Family_History": np.random.choice([0, 1], 100),
+    "Exercise": np.random.choice([0, 1], 100),
+    "Diet": np.random.choice([0, 1], 100),
+    "Alcohol": np.random.choice([0, 1], 100),
+    "Smoking": np.random.choice([0, 1], 100),
+    "Breastfeeding": np.random.choice([0, 1], 100),
+    "Hormone_Therapy": np.random.choice([0, 1], 100)
+})
+
+# Standardize Data
+scaler = StandardScaler()
+data_scaled = scaler.fit_transform(data)
+
+# Apply Gaussian Mixture Model (GMM)
+gmm = GaussianMixture(n_components=3, random_state=42)
+gmm.fit(data_scaled)
+labels = gmm.predict(data_scaled)
+data['Cluster'] = labels
+
+# Predict User's Cluster
+if st.button("Check My Risk Level"):
+    user_cluster = gmm.predict(preprocess_inputs())[0]
+    cluster_mapping = {0: "Low Risk", 1: "Moderate Risk", 2: "High Risk"}
+    risk_level = cluster_mapping[user_cluster]
+
+    # Display Result
+    st.subheader(f"Your Estimated Risk Level: {risk_level}")
+    
+    if risk_level == "High Risk":
+        st.error("⚠️ High Risk: Please consult a doctor for a professional assessment.")
+        st.write("### Tips to Lower Risk:")
+        st.write("🔹 Maintain a **healthy diet** rich in vegetables and fruits.")
+        st.write("🔹 Exercise at least **3-4 times a week**.")
+        st.write("🔹 Avoid **smoking and excessive alcohol consumption**.")
+        st.write("🔹 Go for **regular health check-ups and mammograms**.")
+    
+    elif risk_level == "Moderate Risk":
+        st.warning("⚠️ Moderate Risk: You may be at some risk, consider lifestyle improvements.")
+        st.write("### Tips to Lower Risk:")
+        st.write("🔹 Eat a **balanced diet** with limited processed foods.")
+        st.write("🔹 Maintain a **healthy weight** and stay active.")
+        st.write("🔹 If on **hormone therapy**, consult your doctor about alternatives.")
+        st.write("🔹 Be mindful of **family history** and discuss screenings with your doctor.")
+    
+    else:
+        st.success("✅ Low Risk: Keep up your healthy lifestyle!")
+        st.write("### Tips to Stay Healthy:")
+        st.write("🔹 Continue **exercising and eating well**.")
+        st.write("🔹 Avoid **smoking and limit alcohol**.")
+        st.write("🔹 Go for **routine health screenings**.")
+        st.write("🔹 Stay informed and aware about breast cancer risks.")
+
+    # Display Cluster Visualization
+    fig, ax = plt.subplots()
+    sns.scatterplot(x=data['Age'], y=data['BMI'], hue=data['Cluster'], palette=['#FFB6C1', '#FF69B4', '#DB7093'], ax=ax)
+    ax.scatter(age, bmi, color='red', s=100, label='Your Position')
+    plt.legend()
+    st.pyplot(fig)
